@@ -1,0 +1,81 @@
+# HOLDLAMP 1200W fogger, RF remote (decoded from Flipper captures 2026-11-11)
+#
+# On air: 433.657 MHz OOK, TE ~403us, 32-bit PWM frames
+#   sync = 1 TE high + 32 TE low, 0 = 1:3, 1 = 3:1
+#   key  = 0x7CF0 (remote address) | cmd | ~cmd
+# cmd is the remote's button number in BCD (01..24). 0x02 is not captured yet.
+
+node:
+  name: fog-01
+  universe: 1        # Art-Net port-address. QLC+ "Universe 2" = 1 on the wire
+  address: 1         # DMX start address; channels below are consecutive
+
+fixture:             # identity in QLC+ (dbctl qxf)
+  manufacturer: HOLDLAMP
+  model: 1200W Fogger (dmxbridge)
+
+radio:
+  spi: /dev/spidev1.1
+  cs_gpio: ""        # if hardware CS is broken: move CSN to header pin 26, set gpiochip0:74
+  freq: 433.657M
+  power: 0xC0        # ~+10 dBm. 0x60 ~ 0 dBm if you only need a few metres
+
+protocol:
+  te: 403us
+  bits: 32
+  sync: [1, 32]
+  zero: [1, 3]
+  one: [3, 1]
+  repeats: 4         # frames per command (~260 ms). Remote sends 4-8; raise if flaky
+  address: 0x7CF0
+
+failsafe:
+  timeout: 1.5s      # no Art-Net -> fog OFF (colour/brightness hold)
+
+channels:
+  # ch1 — keep fog first: lowest channel = highest radio priority
+  - name: fog
+    type: onoff
+    on: 0x01
+    off: 0x03
+    max_on: 20s
+    cooldown: 10s
+    refresh: 2s        # re-send ON while fogging
+    idle_refresh: 10s  # re-send OFF while idle: a missed OFF self-heals
+
+  # ch2 — 0 = no change, rest split evenly, ordered by hue so a sweep looks right
+  - name: color
+    type: select
+    options:
+      - {label: "Off",           cmd: 0x24, hex: "#000000"}
+      - {label: Red,             cmd: 0x04, hex: "#ff0000"}
+      - {label: Reddish pink,    cmd: 0x21, hex: "#ff2a55"}
+      - {label: Dark pink,       cmd: 0x22, hex: "#d6006e"}
+      - {label: Pink,            cmd: 0x14, hex: "#ff5fae"}
+      - {label: Light pink,      cmd: 0x17, hex: "#e0a0ff"}
+      - {label: Purple,          cmd: 0x20, hex: "#9a2aff"}
+      - {label: Purple 2,        cmd: 0x23, hex: "#7a1fd6"}
+      - {label: Dark blue,       cmd: 0x15, hex: "#1a2aff"}
+      - {label: Blue,            cmd: 0x06, hex: "#0000ff"}
+      - {label: Light blue,      cmd: 0x16, hex: "#4fa8ff"}
+      - {label: Cyan,            cmd: 0x19, hex: "#00ffff"}
+      - {label: Green,           cmd: 0x05, hex: "#00ff00"}
+      - {label: Green 2,         cmd: 0x18, hex: "#40ff60"}
+      - {label: Yellow,          cmd: 0x13, hex: "#ffff00"}
+
+  # ch3 — LED effect modes
+  - name: mode
+    type: select
+    options:
+      - {label: Jump,     cmd: 0x07}
+      - {label: Gradual,  cmd: 0x08}
+      - {label: Pulse,    cmd: 0x09}
+      - {label: Strobe,   cmd: 0x10}
+
+  # ch4 — relative up/down buttons made into an absolute fader.
+  # Set steps = presses from min to max on the real remote.
+  - name: brightness
+    type: stepper
+    up: 0x11
+    down: 0x12
+    steps: 5

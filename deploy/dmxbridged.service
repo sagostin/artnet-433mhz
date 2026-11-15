@@ -1,0 +1,14 @@
+[Unit]
+Description=dmxbridge Art-Net to RF bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/dmxbridged -profile /etc/dmxbridge/profile.yaml
+Restart=always
+RestartSec=1
+# needs /dev/spidev1.1 (and /dev/gpiochip0 if cs_gpio is set)
+User=root
+
+[Install]
+WantedBy=multi-user.target
