@@ -1,4 +1,4 @@
-# dmxbridge
+# artnet-433mhz
 
 An Art-Net to 433 MHz bridge for effects that only come with an RF remote. It runs on an Orange Pi Zero 3 with a CC1101 module. The Pi receives one Art-Net universe, maps DMX channels to remote button presses, and the CC1101 transmits them. The CC1101 clocks each frame from its own crystal, so Linux timing jitter doesn't affect the RF.
 
